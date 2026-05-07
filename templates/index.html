@@ -3,29 +3,40 @@
 <head>
     <title>TutorFlow Vetter Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .justification-text { font-style: italic; color: #6c757d; font-size: 0.85rem; }
+        .tutor-link { text-decoration: none; font-weight: bold; color: #0d6efd; }
+        .tutor-link:hover { text-decoration: underline; }
+        .score-badge { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; margin: auto; }
+    </style>
 </head>
 <body class="bg-light">
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Tutor Vetting Dashboard</h2>
-            <div class="btn-group">
-                <a href="/seed" class="btn btn-outline-secondary btn-sm">Seed Data</a>
+            <div>
+                <h2 class="mb-0">Tutor Vetting Dashboard</h2>
+                <p class="text-muted small">Intelligent Talent Acquisition Pipeline</p>
+            </div>
+            <div class="btn-group shadow-sm">
+                <a href="/seed" class="btn btn-outline-secondary btn-sm">Reset & Seed</a>
                 <a href="/priorities" class="btn btn-outline-primary btn-sm">Manage Priorities</a>
-                <button class="btn btn-warning btn-sm" onclick="rankAll()">AI Rank by Priorities</button>
+                <button class="btn btn-warning btn-sm fw-bold" onclick="rankAll()">AI Batch Rank</button>
             </div>
         </div>
 
         <div class="card mb-4 shadow-sm border-0">
             <div class="card-body">
-                <h5 class="card-title text-muted">Current Hiring Weights</h5>
+                <h5 class="card-title text-muted small text-uppercase fw-bold mb-3">Live Hiring Weights</h5>
                 <div class="row">
                     {% for p in priorities %}
-                    <div class="col-md-3">
-                        <small class="text-uppercase fw-bold text-primary">{{ p.category }}</small>
-                        <div class="progress" style="height: 10px;">
-                            <div class="progress-bar" role="progressbar" style="width: {{ p.weight * 10 }}%"></div>
+                    <div class="col-md-3 mb-2">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="fw-bold">{{ p.category }}</small>
+                            <small class="text-muted">{{ p.weight }}/10</small>
                         </div>
-                        <small class="text-muted">Weight: {{ p.weight }}</small>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-primary" style="width: {{ p.weight * 10 }}%"></div>
+                        </div>
                     </div>
                     {% endfor %}
                     {% if not priorities %}
@@ -36,30 +47,37 @@
         </div>
 
         <div class="table-responsive">
-            <table class="table table-hover bg-white shadow-sm rounded">
+            <table class="table table-hover bg-white shadow-sm rounded align-middle">
                 <thead class="table-dark">
                     <tr>
-                        <th>Score</th>
-                        <th>Name</th>
+                        <th class="text-center">Fit Score</th>
+                        <th>Candidate Name</th>
                         <th>Subject</th>
-                        <th>Action</th>
-                        <th>AI Security/DBS Verdict</th>
+                        <th>AI Ranking Justification</th>
+                        <th class="text-end">Safeguarding</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for tutor in tutors %}
                     <tr>
-                        <td class="align-middle">
-                            <span class="badge {% if tutor.score > 70 %}bg-success{% elif tutor.score > 40 %}bg-warning{% else %}bg-secondary{% endif %}">
-                                {{ tutor.score|round(1) }}
-                            </span>
+                        <td class="text-center">
+                            <div class="score-badge {% if tutor.score > 70 %}bg-success text-white{% elif tutor.score > 40 %}bg-warning text-dark{% else %}bg-secondary text-white{% endif %}">
+                                {{ tutor.score|int }}
+                            </div>
                         </td>
-                        <td class="align-middle">{{ tutor.name }}</td>
-                        <td class="align-middle"><span class="badge bg-info text-dark">{{ tutor.subject }}</span></td>
-                        <td class="align-middle">
-                            <button class="btn btn-primary btn-sm" onclick="runVetting({{ tutor.id }}, this)">Check Safeguarding</button>
+                        <td>
+                            <a href="/tutor/{{ tutor.id }}" class="tutor-link">{{ tutor.name }}</a>
+                            <br><small class="text-muted">ID: #{{ tutor.id }}</small>
                         </td>
-                        <td id="verdict-{{ tutor.id }}" class="small text-muted align-middle" style="max-width: 300px;">---</td>
+                        <td><span class="badge bg-info text-dark text-uppercase">{{ tutor.subject }}</span></td>
+                        <td class="justification-text" style="max-width: 300px;">
+                            {{ tutor.justification or "Analysis pending batch ranking..." }}
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="runVetting({{ tutor.id }}, this)">
+                                Verify DBS
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -67,27 +85,68 @@
         </div>
     </div>
 
+    <div class="modal fade" id="dbsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">🛡️ Safeguarding Verification</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <div id="modal-spinner" class="spinner-border text-primary mb-3" role="status" style="display:none;"></div>
+                    <div id="modal-content-area">
+                        </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         async function runVetting(id, btn) {
-            btn.disabled = true;
-            btn.innerText = "Analyzing...";
-            try {
-                const res = await fetch(`/vet/${id}`, { method: 'POST' });
-                const data = await res.json();
-                document.getElementById(`verdict-${id}`).innerText = data.analysis;
-            } catch (e) {
-                console.error(e);
-            } finally {
-                btn.innerText = "Check Safeguarding";
-                btn.disabled = false;
-            }
-        }
+          const dbsModal = new bootstrap.Modal(document.getElementById('dbsModal'));
+          const contentArea = document.getElementById('modal-content-area');
+          const spinner = document.getElementById('modal-spinner');
+          
+          // Set initial loading state
+          contentArea.innerHTML = `<h6 class="text-muted">Consulting AI Vetting Agent...</h6>`;
+          spinner.style.display = "inline-block";
+          dbsModal.show();
+
+          try {
+              const res = await fetch(`/vet/${id}`, { method: 'POST' });
+              const data = await res.json();
+              
+              spinner.style.display = "none";
+              
+              // Just paste the text. No icons, no color-coding logic.
+              // This relies on the LLM's own 1-sentence suitability verdict.
+              contentArea.innerHTML = `
+                  <div class="text-start border-start border-4 border-primary ps-3 py-2">
+                      <p class="mb-0" style="font-size: 1.1rem; color: #333;">
+                          ${data.analysis}
+                      </p>
+                  </div>
+                  <div class="mt-4 pt-3 border-top">
+                      <small class="text-muted">Verification Source: Llama-3.3-70b-Instruct</small>
+                  </div>
+              `;
+          } catch (e) {
+              spinner.style.display = "none";
+              contentArea.innerHTML = `
+                  <div class="alert alert-danger">
+                      <strong>Connection Error:</strong> Could not reach the vetting engine.
+                  </div>
+              `;
+          }
+      }
 
         async function rankAll() {
-            if(!confirm("Proceed with AI Batch Ranking?")) return;
-            
+            if(!confirm("Update AI Rankings? This will use your defined Hiring Weights to score candidates.")) return;
             const btn = event.target;
-            const originalText = btn.innerText;
             btn.innerText = "Ranking...";
             btn.disabled = true;
             
@@ -97,9 +156,9 @@
                     location.reload();
                 }
             } catch (e) {
-                alert("Ranking failed.");
-                btn.innerText = originalText;
+                alert("Ranking process failed.");
                 btn.disabled = false;
+                btn.innerText = "AI Batch Rank";
             }
         }
     </script>

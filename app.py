@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, jsonify, redirect
 from flask_sqlalchemy import SQLAlchemy
 from engine import OpenRouterClient
-from models import db, Tutor, Priority
+from models import db, Tutor, Priority, Document
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tutorflow.db'
@@ -21,20 +21,16 @@ def index():
     return render_template("index.html", tutors=tutors, priorities=priorities)
 
 @app.route("/seed")
-def seed():
-    """Run this once to populate your demo data"""
-    if not Tutor.query.first():
-        t1 = Tutor(name="Alice Smith", subject="Maths", cv_text="GCSE Maths specialist. 5 years experience. DBS 2027.")
-        t2 = Tutor(name="Bob Jones", subject="Physics", cv_text="University lecturer. 10 years experience. DBS 2023 (EXPIRED).")
-        db.session.add_all([t1, t2])
-        db.session.add(Priority(category="Maths", weight=9))
-        db.session.commit()
-    return "Database Seeded!"
+def seed_route():
+    from seeder import Seeder
+    seeder = Seeder()
+    result = seeder.seed()
+    return result
 
 @app.route("/vet/<int:tutor_id>", methods=["POST"])
 def vet_tutor(tutor_id):
     tutor = Tutor.query.get_or_404(tutor_id)
-    prompt = f"Analyse this tutor: {tutor.cv_text}. Check if DBS is expired (Current Year 2026). Provide a 1-sentence verdict."
+    prompt = f"Analyse this tutor: {tutor.dbs.content}. Check if DBS is expired (Current Year 2026). Provide a 1-sentence verdict."
     analysis = client.generate(prompt)
 
     return jsonify({"analysis": analysis})
@@ -42,19 +38,31 @@ def vet_tutor(tutor_id):
 @app.route("/rank_all", methods=["POST"])
 def rank_candidates():
     priorities = Priority.query.all()
-    priority_string = ", ".join([f"{p.category} (weight {p.weight})" for p in priorities])
+    p_text = ", ".join([f"{p.category} (weight {p.weight})" for p in priorities])
     
     tutors = Tutor.query.all()
     for tutor in tutors:
-        prompt = f"Given these hiring priorities: {priority_string}, rate this tutor's CV out of 100: {tutor.cv_text}. Return ONLY the number."
+        prompt = f"Priorities: {p_text}. Tutor CV: {tutor.cv.content}. Rate 1-100 and give a 10-word 'Why'. Format: Score | Why"
         try:
-            score_text = client.generate(prompt).strip()
-            tutor.score = float("".join(filter(str.isdigit, score_text)) or 0)
+            res = client.generate(prompt).split("|")
+            tutor.score = float("".join(filter(str.isdigit, res[0])) or 0)
+            tutor.justification = res[1] if len(res) > 1 else "Matches criteria."
         except Exception as e:
             print(f"Error ranking {tutor.name}: {e}")
     
     db.session.commit()
-    return jsonify({"status": "Success"})
+    return jsonify({"status": "ok"})
+
+@app.route("/tutor/<int:id>")
+def tutor_profile(id):
+    tutor = Tutor.query.get_or_404(id)
+    return render_template("profile.html", tutor=tutor)
+
+@app.route("/generate_insights/<int:id>", methods=["POST"])
+def insights(id):
+    tutor = Tutor.query.get_or_404(id)
+    prompt = f"Analyze CV: {tutor.cv.content} and Lesson Plan: {tutor.lesson.content}. Give 3 interview questions and 1 red flag check."
+    return jsonify({"insights": client.generate(prompt)})
 
 @app.route("/priorities", methods=["GET", "POST"])
 def manage_priorities():
