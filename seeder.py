@@ -2,7 +2,7 @@ import csv
 from models import db, Tutor, Document, Priority
 
 class Seeder:
-    def __init__(self, file_path='candidates.csv') -> None:
+    def __init__(self, file_path='data/candidates.csv') -> None:
         self.file_path = file_path
 
     def seed(self):
