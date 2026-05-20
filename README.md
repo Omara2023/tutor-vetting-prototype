@@ -1,6 +1,6 @@
 # Agentic Profile Screener & Interview Architect
 
-A lightweight, high-velocity python prototype built to automate unstructured applicant vetting and dynamically generate tailored interview frameworks. Designed and executed as a time-boxed 3-hour rapid engineering sprint, the system bridges the gap between raw business requirements and structured LLM execution.
+A lightweight, high-velocity python prototype built to automate unstructured applicant vetting and dynamically generate tailored interview frameworks. Designed and executed as a time-boxed 3-hour rapid engineering sprint (1 hour proposal write-up, 2 hour build window), the system bridges the gap between raw business requirements and structured LLM execution.
 
 ## System Architecture
 
